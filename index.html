@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Monster Splash!</title>
+    
+    <script src="phaser.min.js"></script> 
+    
+    <style>
+        /* --- FONT DEFINITIONS FOR OFFLINE PLAY --- */
+        @font-face {
+            font-family: 'Archivo Narrow';
+            src: url('/ArchivoNarrow-Regular.ttf') format('truetype');
+            font-weight: 400; /* Corresponds to 'normal' */
+            font-style: normal;
+        }
+        @font-face {
+            font-family: 'Archivo Narrow';
+            src: url('/ArchivoNarrow-Bold.ttf') format('truetype');
+            font-weight: 700; /* Corresponds to 'bold' */
+            font-style: normal;
+        }
+        /* CSS CONSOLIDATED FOR SCALING (Embedded) */
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #555;
+            overflow: hidden;
+        }
+
+        /* --- CRITICAL SIZE DEFINITION (2x Scaling) --- */
+        #game-outer-wrapper {
+            /* Sets the display size to 1440x600, forcing the 720x300 internal canvas to stretch */
+            width: 1440px !important; 
+            height: 600px !important;
+            
+            aspect-ratio: 720 / 300; 
+            
+            border: 5px solid black; 
+        }
+
+        /* Ensure the canvas fills its parent wrapper */
+        #game-outer-wrapper canvas {
+            width: 100% !important;
+            height: 100% !important;
+            display: block;
+            
+            /* Ensures sharp edges when scaling SVGs and textures */
+            image-rendering: crisp-edges;
+            image-rendering: pixelated; 
+        }
+    </style>
+</head>
+<body>
+    <div id="game-outer-wrapper">
+        </div>
+    
+    <script src="main.js"></script>
+</body>
+</html>

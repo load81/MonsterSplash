@@ -1,13 +1,11 @@
-// main.js - Crash Fix for Pause Button
-
-// --- Title Screen Scene (Now also the main Preloader) ---
+// --- Title Scene ---
 class TitleScene extends Phaser.Scene {
     constructor() {
         super({ key: 'TitleScene' });
     }
 
     preload() {
-        // --- ALL GAME ASSETS ARE NOW LOADED HERE ---
+        // Load all game assets
         this.load.image('background', 'graveyard.png'); 
         this.load.svg('balloon_asset', '40.svg', { width: 30, height: 30 });
         this.load.svg('title_logo', 'title_logo.svg', { width: 450, height: 120 });
@@ -17,7 +15,7 @@ class TitleScene extends Phaser.Scene {
         this.load.svg('play_hover', 'play_hover.svg', { width: 80, height: 40 });
         this.load.svg('rules_panel', 'rules_panel.svg', { width: 1440, height: 600 });
 
-        // Game assets
+        // Character and UI assets
         this.load.image('zombie', 'zombie.png');
         this.load.image('ghost', 'ghost.png');
         this.load.image('witch', 'witch.png');
@@ -46,21 +44,13 @@ class TitleScene extends Phaser.Scene {
         this.time.removeAllEvents(); 
         
         this.add.image(360, 150, 'background').setOrigin(0.5, 0.5);
-
         this.add.image(360, 100, 'title_logo').setOrigin(0.5, 0.5); 
         
-        const rulesButton = this.add.image(250, 240, 'rules_button')
-            .setInteractive({ useHandCursor: true });
-        
-        const startButton = this.add.image(470, 240, 'play_button')
-            .setInteractive({ useHandCursor: true });
+        const rulesButton = this.add.image(250, 240, 'rules_button').setInteractive({ useHandCursor: true });
+        const startButton = this.add.image(470, 240, 'play_button').setInteractive({ useHandCursor: true });
         
         this.overlayContainer = this.add.container(360, 150);
-        
-        const rulesPanel = this.add.image(0, 0, 'rules_panel')
-            .setOrigin(0.5, 0.5)
-            .setDisplaySize(720, 300); 
-            
+        const rulesPanel = this.add.image(0, 0, 'rules_panel').setOrigin(0.5, 0.5).setDisplaySize(720, 300); 
         this.overlayContainer.add(rulesPanel);
         this.overlayContainer.setVisible(false); 
         
@@ -69,9 +59,7 @@ class TitleScene extends Phaser.Scene {
 
         this.time.addEvent({
             delay: Phaser.Math.Between(3000, 8000), 
-            callback: () => {
-                this.sound.play('owl_hoot', { volume: 0.5 });
-            },
+            callback: () => { this.sound.play('owl_hoot', { volume: 0.5 }); },
             loop: true
         });
 
@@ -88,11 +76,9 @@ class TitleScene extends Phaser.Scene {
         });
 
         handleHover(startButton, 'play_hover', 'play_button');
-        
         startButton.on('pointerdown', () => {
             startButton.setTexture('play_hover');
             this.sound.play('intro');
-
             this.time.delayedCall(100, () => {
                 this.sound.stopByKey('ambient_loop');
                 this.time.removeAllEvents(); 
@@ -107,11 +93,12 @@ class TitleScene extends Phaser.Scene {
 }
 
 
-// --- Game Scene Class ---
+// --- Game Scene ---
 class GameScene extends Phaser.Scene {
     constructor() {
         super({ key: 'GameScene' });
         
+        // Game constants
         this.GRAVE_POSITIONS_DEFAULT = [
             {x: 160, y: 120, isOccupied: false}, 
             {x: 568, y: 120, isOccupied: false} 
@@ -122,16 +109,13 @@ class GameScene extends Phaser.Scene {
             witch:  { key: 'witch',  speed: 180, points: 20, scale: 0.42 }, 
             bat:    { key: 'bat',    speed: 0,  points: 0,  reward: 5, scale: 0.5 }
         };
-        
         this.HAND_FIXED_Y = 280; 
         this.RISE_HEIGHT = 40; 
         this.RISE_TIME_FRAMES = 30; 
-        
-        this.UI_PANEL_WIDTH = 60;
-        this.BORDER_THICKNESS = 8;
     }
 
     init() {
+        // Initialize or reset game state variables
         this.gameState = {
             score: 0, level: 1, ammo: 10, isAiming: false, power: 0,
             powerDirection: 1, characters: null, projectiles: null, hand: null,
@@ -143,11 +127,8 @@ class GameScene extends Phaser.Scene {
         this.GRAVE_POSITIONS = JSON.parse(JSON.stringify(this.GRAVE_POSITIONS_DEFAULT));
     }
 
-    preload() {
-        // All assets are loaded in TitleScene
-    }
-
     create() {
+        // Setup background and physics
         this.gameState.ambientMusic = this.sound.add('ambient_loop', { loop: true, volume: 1.0 }); 
         this.gameState.ambientMusic.play();
         this.add.image(360, 150, 'background').setOrigin(0.5, 0.5);
@@ -155,49 +136,38 @@ class GameScene extends Phaser.Scene {
         this.physics.world.on('worldbounds', this.onBalloonOut, this);
         this.gameState.projectiles = this.physics.add.group();
         
-        // --- UI REWORK ---
+        // Setup UI elements
         this.add.image(0, 0, 'ui_frame').setOrigin(0,0).setDepth(50);
-        
         const meterX = this.scale.width - 21;
-        
         this.meterTopY = 122;
         this.meterBottomY = 282;
-        this.meterRange = this.meterBottomY - this.meterTopY;
-
         this.gameState.powerDash = this.add.sprite(meterX, this.meterBottomY, 'ui_power_dash').setDepth(51).setVisible(false);
-        
-        // --- SCORE UI (Title and Value) ---
         this.add.text(meterX, 17, "SCORE", { fontSize: '8px', fill: '#FFFFFF', fontFamily: 'Archivo Narrow', align: 'center' }).setOrigin(0.5).setDepth(53);
         this.gameState.scoreText = this.add.text(meterX, 35, "0", { fontSize: '16px', fill: '#FFA500', fontFamily: 'Archivo Narrow', align: 'center' }).setOrigin(0.5).setDepth(53);
-
-        // --- LEVEL UI (Title and Value) ---
         this.add.text(meterX, 60, "LEVEL", { fontSize: '8px', fill: '#FFFFFF', fontFamily: 'Archivo Narrow', align: 'center' }).setOrigin(0.5).setDepth(53);
         this.gameState.levelText = this.add.text(meterX, 80, "1", { fontSize: '16px', fill: '#FFA500', fontFamily: 'Archivo Narrow', align: 'center' }).setOrigin(0.5).setDepth(53);
-
         this.pauseButton = this.add.bitmapText(20, 25, 'ui_font', '||', 20).setOrigin(0, 0.5).setInteractive({ useHandCursor: true }).setDepth(100);
         this.pauseButton.on('pointerdown', this.togglePause, this);
         this.muteButton = this.add.text(35, 18, '🔊', { fontSize: '18px', fill: '#FFFFFF', padding: {x: 5, y: 2} }).setOrigin(0, 0).setInteractive({ useHandCursor: true }).setDepth(100);
         this.muteButton.on('pointerdown', this.toggleMute, this); 
         this.gameState.ammoText = this.add.bitmapText(75, 27, 'ui_font', `AMMO: ${this.gameState.ammo}`, 22).setOrigin(0, 0.5).setDepth(100);
         
+        // Setup player and input
         this.gameState.hand = this.add.sprite(360, 300, 'hand').setOrigin(0.5, 0.5).setScale(0.45).setDepth(20); 
         this.gameState.handClampX = this.scale.width - 60 - 8;
-        
         this.gameState.hand.y = this.HAND_FIXED_Y;
         this.gameState.characters = this.physics.add.group();
         this.input.on('pointerdown', this.startAim, this);
         this.input.on('pointerup', this.throwBalloon, this);
         
+        // Setup timed monster spawn events
         this.time.addEvent({ delay: Phaser.Math.Between(2000, 3500), callback: this.spawnSpecialCharacter, callbackScope: this, loop: true });
         this.time.addEvent({ delay: Phaser.Math.Between(2500, 4000), callback: this.checkAndSpawnZombie, callbackScope: this, loop: true });
 
-        
         if (this.physics.world.debug) {
-        	// If in debug mode, unlock bat spawning immediately.
         	this.gameState.batSpawnLocked = false;
         } else {
-        	// Otherwise, use the standard 12-second delay.
-        	this.time.delayedCall(12000, () => { this.gameState.batSpawnLocked = false; }, [], this);
+        	this.time.delayedCall(8000, () => { this.gameState.batSpawnLocked = false; }, [], this);
     	}
         this.physics.add.overlap(this.gameState.projectiles, this.gameState.characters, this.hitCharacter, null, this);
     }
@@ -217,7 +187,6 @@ class GameScene extends Phaser.Scene {
             this.gameState.powerDash.setVisible(false);
         }
         this.gameState.scoreText.setText(this.gameState.score);
-
         this.gameState.ammoText.setText(`AMMO: ${this.gameState.ammo}`);
         this.gameState.levelText.setText(this.gameState.level);
 
@@ -229,26 +198,28 @@ class GameScene extends Phaser.Scene {
         });
 
         if (this.gameState.ammo <= 0 && this.gameState.projectiles.getLength() === 0) { this.triggerGameOver(); }
+        
+        // Update active characters
         this.gameState.characters.children.iterate((char) => {
             if (char && char.active) {
                 if (char.type === 'ghost') { this.updateGhost(char); } 
                 else if (char.type === 'bat') { this.updateBat(char); }
-                if (char.type === 'zombie' && !char.isTweening) { this.addZombieBobTween(char); }
-                if (char.x < -30 || char.x > 750 || char.y < -30 || char.y > 400) { char.destroy(); }
+                if (char.x < -30 || char.x > 750 || char.y < -30 || char.y > 400) {
+                    char.destroy();
+                }
             }
         });
     }
     
-    addZombieBobTween(zombie) {
-        zombie.isTweening = true;
-        this.tweens.add({ targets: zombie, y: zombie.y - 5, duration: 500, ease: 'Sine.easeInOut', yoyo: true, repeat: -1, onStop: () => { zombie.isTweening = false; } });
+    addZombieBobTween(target) {
+        this.tweens.add({ targets: target, y: target.y - 5, duration: 500, ease: 'Sine.easeInOut', yoyo: true, repeat: -1 });
     }
 
     onBalloonOut(body) { body.gameObject.destroy(); }
 
     toggleMute() {
-        if (this.sound.mute) { this.sound.mute = false; this.muteButton.setText('🔊'); } 
-        else { this.sound.mute = true; this.muteButton.setText('🔇'); }
+        this.sound.mute = !this.sound.mute;
+        this.muteButton.setText(this.sound.mute ? '🔇' : '🔊');
     }
 
     togglePause() {
@@ -295,7 +266,7 @@ class GameScene extends Phaser.Scene {
         if (ghost.state === 'rising') {
             const framesRemaining = (ghost.y - ghost.riseTargetY) / (this.RISE_HEIGHT / this.RISE_TIME_FRAMES);
             ghost.y -= this.RISE_HEIGHT / this.RISE_TIME_FRAMES; 
-            const progress = (this.RISE_TIME_FRAMES - framesRemaining) / this.RISE_TIME_FRAMES;
+            const progress = 1 - (framesRemaining / this.RISE_TIME_FRAMES);
             const easedProgress = Phaser.Math.Easing.Sine.Out(progress);
             ghost.alpha = Phaser.Math.Clamp(easedProgress, 0, 1.0);
             ghost.setScale(Phaser.Math.Clamp(easedProgress, 0, 1.0) * this.CHARACTER_SPECS.ghost.scale);
@@ -335,35 +306,52 @@ class GameScene extends Phaser.Scene {
     
     checkAndSpawnZombie() {
         if (this.gameState.isGameOver || this.gameState.isPaused) return;
-
         const zombieCount = this.gameState.characters.children.getArray().filter(char => char.type === 'zombie').length;
         if (zombieCount < 2) {
             this.spawnZombie();
         }
     }
     
-    spawnZombie() {
-        const spec = this.CHARACTER_SPECS.zombie;
-        const startSide = Phaser.Math.RND.pick([-1, 1]);
-        const x = (startSide === 1) ? -10 : 730; 
-        const y = 300 + 30;
-        const newChar = this.gameState.characters.create(x, y, 'zombie'); 
-        if (!newChar) return;
+	spawnZombie() {
+		const spec = this.CHARACTER_SPECS.zombie;
+		const startSide = Phaser.Math.RND.pick([-1, 1]);
+		const x = (startSide === 1) ? -10 : 730;
+		const y = 300 + 30; // Spawn from the bottom
 
-        this.addZombieBobTween(newChar); 
-        newChar.setVelocityX(startSide * spec.speed);
-        if (startSide === -1) { newChar.setFlipX(true); }
-        this.sound.play('moan', { volume: 0.3, detune: Phaser.Math.Between(-200, 200) });
-        newChar.setScale(spec.scale).setOrigin(0.5, 1);
-        newChar.refreshBody();
-        newChar.setDepth(5);
-        newChar.body.setImmovable(false).setAllowGravity(false); 
-        newChar.type = spec.key;
-        newChar.points = spec.points;
-    }
+		const newChar = this.gameState.characters.create(x, y, 'zombie');
+		if (!newChar) return;
+
+		newChar.setScale(spec.scale).setOrigin(0.5, 1);
+		newChar.refreshBody(); // Important: Refresh body AFTER scaling and origin change
+
+		// --- HURTBOX ADJUSTMENT ---
+		const hurtboxWidth = 60;
+		const hurtboxHeight = 40;
+		const yOffset = newChar.height * 0.25; // Position it 25% down from the top
+
+		newChar.body.setSize(hurtboxWidth, hurtboxHeight);
+
+		if (startSide === -1) { // Flipped zombie from the RIGHT
+			const xOffset = newChar.width - hurtboxWidth - 20; // 20 is a padding value
+			newChar.body.setOffset(xOffset, yOffset);
+			newChar.setFlipX(true);
+		} else { // Normal zombie from the LEFT
+			newChar.body.setOffset(20, yOffset); // 20 is a padding value
+		}
+		// --- END ---
+
+		this.addZombieBobTween(newChar); // This will now work correctly
+		newChar.body.setVelocityX(startSide * spec.speed);
+
+		this.sound.play('moan', { volume: 0.3, detune: Phaser.Math.Between(-200, 200) });
+		newChar.setDepth(5);
+		newChar.body.setImmovable(false).setAllowGravity(false);
+		newChar.type = spec.key;
+		newChar.points = spec.points;
+	}
 
     spawnSpecialCharacter() {
-        if (this.gameState.characters.getLength() >= 4) return;
+        if (this.gameState.characters.getLength() >= 8) return;
         if(this.gameState.isGameOver) return;
         const roll = Phaser.Math.RND.between(1, 100);
         let specKey = null;
@@ -389,6 +377,8 @@ class GameScene extends Phaser.Scene {
             y = 10; 
             newChar = this.gameState.characters.create(x, y, spec.key);
             newChar.setOrigin(0.5, 0); 
+            newChar.body.setSize(50, 80); // width, height in pixels
+            newChar.body.setOffset(15, 10); // x-offset, y-offset in pixels
             newChar.setVelocityX(startSide * spec.speed);
             if (startSide === -1) { newChar.setFlipX(true); }
             this.sound.play('cackle', { volume: 1.0 });
@@ -403,7 +393,7 @@ class GameScene extends Phaser.Scene {
 
             newBat.setScale(spec.scale).setOrigin(0.5, 0.5);
             newBat.refreshBody();
-            newBat.body.setCircle(newBat.body.width * 0.8);
+            newBat.body.setCircle(25, 45, 5); // radius, x-offset, y-offset
             newBat.body.setImmovable(false).setAllowGravity(false);
             newBat.type = spec.key;
             newBat.points = spec.points;
@@ -421,26 +411,22 @@ class GameScene extends Phaser.Scene {
         if (!newChar) return; 
 
         newChar.setScale(spec.scale);
-        if (spec.key !== 'witch') {
-            newChar.setOrigin(0.5, 1);
-        } 
+        if (spec.key !== 'witch') { newChar.setOrigin(0.5, 1); } 
 
         newChar.refreshBody();
 
         if (spec.key === 'ghost') {
-            const radius = newChar.body.width * 0.9;
-            newChar.body.setCircle(radius);
+            const radius = newChar.body.width * 0.5;
+            newChar.body.setCircle(40, 25, 15); // radius, x-offset, y-offset
         }
 
-        if (spec.key === 'ghost') { newChar.setDepth(1); }
-        else { newChar.setDepth(10); } 
-
+        newChar.setDepth(spec.key === 'ghost' ? 1 : 10);
         newChar.body.setImmovable(false).setAllowGravity(false); 
         newChar.type = spec.key;
         newChar.points = spec.points;
     }
     
-    startAim(pointer) {
+    startAim() {
         if (this.gameState.ammo > 0 && !this.gameState.isGameOver) { 
             this.gameState.isAiming = true;
             this.gameState.power = 0;
@@ -448,7 +434,7 @@ class GameScene extends Phaser.Scene {
         }
     }
     
-    throwBalloon(pointer) {
+    throwBalloon() {
         if (this.gameState.isAiming && this.gameState.ammo > 0 && !this.gameState.isGameOver && this.gameState.canFire) {
             if (this.gameState.power < 5) { this.gameState.isAiming = false; this.gameState.power = 0; return; }
             
@@ -464,6 +450,7 @@ class GameScene extends Phaser.Scene {
             let newBalloon = this.gameState.projectiles.create(this.gameState.hand.x, this.gameState.hand.y, 'balloon_asset');
             newBalloon.canDamage = true;
             newBalloon.throwPower = effectivePower;
+            newBalloon.setDepth(15);
             newBalloon.setScale(0.5).body.setCircle(15).setAllowGravity(true).setCollideWorldBounds(true);
             newBalloon.body.onWorldBounds = true;
             newBalloon.setVelocity(0, velocityY);
@@ -473,88 +460,80 @@ class GameScene extends Phaser.Scene {
     }
     
     hitCharacter(balloon, character) {
-        if (!balloon.canDamage) return;
-        if (balloon.active && character.body.enable) { 
-            const power = balloon.throwPower;
+        if (!balloon.canDamage || !balloon.active || !character.body.enable) return;
+        
+        // Check power requirements for certain monsters
+        const power = balloon.throwPower;
+        if (character.type === 'zombie' && (power < 15 || power > 60)) return;
+        if (character.type === 'ghost' && (power < 30 || power > 70)) return;
+        if (character.type === 'ghost' && character.state !== 'pausing') return; 
 
-            if (character.type === 'zombie' && (power < 10 || power > 40)) {
-                return;
-            }
+        // Disable balloon immediately to prevent multiple hits
+        balloon.canDamage = false;
+        balloon.body.enable = false;
+        balloon.setVelocity(0, 0);
 
-            if (character.type === 'ghost' && (power < 30 || power > 70)) {
-                return;
-            }
-            
-            if (character.type === 'ghost' && character.state !== 'pausing') return; 
+        // Play balloon "pop" effect
+        this.tweens.add({
+            targets: balloon,
+            scale: 1.5,
+            alpha: 0,
+            duration: 200,
+            ease: 'Power2',
+            onComplete: () => { balloon.destroy(); }
+        });
+        
+        // Play the character's death sound
+        const soundKey = `${character.type}_die`;
+        const variedDeathSounds = ['zombie', 'witch', 'ghost'];
+        if (variedDeathSounds.includes(character.type)) {
+            this.sound.play(soundKey, { volume: 0.8, detune: Phaser.Math.Between(-400, 400) });
+        } else {
+            this.sound.play(soundKey, { volume: 0.8 });
+        }
+        
+        character.setTint(0xFF0000);
+        this.time.delayedCall(100, () => { if (character.active) { character.clearTint() } }, [], this);
+        
+        character.body.enable = false; 
 
-            const soundKey = `${character.type}_die`;
-			const variedDeathSounds = ['zombie', 'witch', 'ghost'];
-
-			if (variedDeathSounds.includes(character.type)) {
-				this.sound.play(soundKey, {
-					volume: 0.8,
-					detune: Phaser.Math.Between(-400, 400)
-				});
-			} else {
-				this.sound.play(soundKey, { volume: 0.8 });
-			}
-            
-            character.setTint(0xFF0000); 
-            this.time.delayedCall(100, () => { if (character.active) { character.clearTint(); } }, [], this);
-            
-            balloon.destroy(); 
-            
-            character.body.enable = false; 
-
-            const spec = this.CHARACTER_SPECS[character.type];
-            if (character.type === 'bat') { this.gameState.ammo += spec.reward; } 
-            else { this.gameState.score += spec.points; }
-            
-            if (character.type === 'ghost') {
-                this.GRAVE_POSITIONS[character.graveIndex].isOccupied = false;
-                this.tweens.add({
-                    targets: character, alpha: 0, scale: 0, duration: 250, ease: 'Power2',
-                    onComplete: () => { character.destroy(); }
-                });
-            } else if (character.type === 'zombie') {
-                character.setVelocity(0,0);
-                this.tweens.add({
-                    targets: character, alpha: 0, duration: 300,
-                    onComplete: () => { character.destroy(); }
-                });
-            } else if (character.type === 'witch') {
-                character.setVelocity(0,0);
-                character.setFlipY(true);
-                this.tweens.add({
-                    targets: character, y: character.y + 100, duration: 400, ease: 'Cubic.easeIn',
-                    onComplete: () => {
-                        this.tweens.add({
-                            targets: character, alpha: 0, duration: 150,
-                            onComplete: () => { character.destroy(); }
-                        });
-                    }
-                });
-            } else { // This is the bat
-                this.tweens.add({
-                    targets: character,
-                    alpha: 0,
-                    scale: 0,
-                    duration: 150,
-                    ease: 'Power2',
-                    onComplete: () => {
-                        const rewardPopup = this.add.image(character.x, character.y, 'reward').setScale(0.5).setAlpha(0).setDepth(100);
-                        this.tweens.createTimeline()
-                            .add({ targets: rewardPopup, alpha: 1, y: '-=20', duration: 200, ease: 'Power2' })
-                            .add({ targets: rewardPopup, alpha: 1, duration: 1000 })
-                            .add({ 
-                                targets: rewardPopup, alpha: 0, duration: 1000, ease: 'Power2.In',
-                                onComplete: () => { rewardPopup.destroy(); }
-                            })
-                            .play();
-                        character.destroy();
-                    }
-                });
-            }
+        const spec = this.CHARACTER_SPECS[character.type];
+        if (character.type === 'bat') { this.gameState.ammo += spec.reward; } 
+        else { this.gameState.score += spec.points; }
+        
+        // Handle death animations and cleanup
+        if (character.type === 'ghost') {
+            this.GRAVE_POSITIONS[character.graveIndex].isOccupied = false;
+            this.tweens.add({ targets: character, alpha: 0, scale: 0, duration: 250, ease: 'Power2', onComplete: () => { character.destroy(); } });
+        } else if (character.type === 'zombie') {
+            character.body.setVelocity(0,0);
+            this.tweens.add({ targets: character, alpha: 0, duration: 300, onComplete: () => { character.destroy(); } });
+        } else if (character.type === 'witch') {
+            character.setVelocity(0,0);
+            character.setFlipY(true);
+            this.tweens.add({
+                targets: character, y: character.y + 100, duration: 400, ease: 'Cubic.easeIn',
+                onComplete: () => {
+                    this.tweens.add({ targets: character, alpha: 0, duration: 150, onComplete: () => { character.destroy(); } });
+                }
+            });
+        } else { // Bat
+            this.tweens.add({
+                targets: character, alpha: 0, scale: 0, duration: 150, ease: 'Power2',
+                onComplete: () => {
+                    const rewardPopup = this.add.image(character.x, character.y, 'reward').setScale(0.5).setAlpha(0).setDepth(100);
+                    this.tweens.timeline({
+                        targets: rewardPopup,
+                        tweens: [
+                            { alpha: 1, y: '-=20', duration: 200, ease: 'Power2' },
+                            { alpha: 1, duration: 1000 },
+                            { alpha: 0, duration: 1000, ease: 'Power2.In' }
+                        ],
+                        onComplete: () => { rewardPopup.destroy(); }
+                    });
+                    character.destroy();
+                }
+            });
         }
     }
 }
@@ -568,8 +547,9 @@ const config = {
     parent: 'game-outer-wrapper',
     physics: {
         default: 'arcade',
-        arcade: { gravity: { y: 600 }, debug: false } // Set to 'true' to see hurtboxes
+        arcade: { gravity: { y: 600 }, debug: false } // Set to false for production
     },
 };
 
 const game = new Phaser.Game(config);
+
